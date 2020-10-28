@@ -34,6 +34,9 @@ Bugfixes:
  * Yul Optimizer: Fix a bug in NameSimplifier where a new name created by NameSimplifier could also be created by NameDispenser.
  * Yul Optimizer: Removed NameSimplifier from optimization steps available to users.
 
+Bug Fixes:
+ * Control Flow Graph: Take internal calls to functions that always revert into account.
+
 ### 0.7.5 (2020-11-18)
 
 Language Features:

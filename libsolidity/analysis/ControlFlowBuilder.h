@@ -37,13 +37,18 @@ class ControlFlowBuilder: private ASTConstVisitor, private yul::ASTWalker
 public:
 	static std::unique_ptr<FunctionFlow> createFunctionFlow(
 		CFG::NodeContainer& _nodeContainer,
-		FunctionDefinition const& _function
+		FunctionDefinition const& _function,
+		ContractDefinition const* _contract
 	);
 
 private:
+	static std::unique_ptr<FunctionFlow> initFunctionFlow(CFG::NodeContainer& _nodeContainer);
+
 	explicit ControlFlowBuilder(
 		CFG::NodeContainer& _nodeContainer,
-		FunctionFlow const& _functionFlow
+		FunctionFlow const& _functionFlow,
+		ContractDefinition const* _contract,
+		std::map<FunctionDefinition const*, std::unique_ptr<FunctionFlow>>& _visitedFunctions
 	);
 
 	// Visits for constructing the control flow.
@@ -89,6 +94,8 @@ private:
 	using ASTConstVisitor::visit;
 	using yul::ASTWalker::visit;
 	using yul::ASTWalker::operator();
+
+	void checkForReverts(FunctionCall const& _functionCall);
 
 	/// Appends the control flow of @a _node to the current control flow.
 	void appendControlFlow(ASTNode const& _node);
@@ -149,6 +156,10 @@ private:
 	CFGNode* newLabel();
 	CFGNode* createLabelHere();
 	void placeAndConnectLabel(CFGNode *_node);
+
+	/// Contract that the current function is called in
+	ContractDefinition const* m_contract;
+	std::map<FunctionDefinition const*, std::unique_ptr<FunctionFlow>>& m_visitedFunctions;
 
 	CFG::NodeContainer& m_nodeContainer;
 

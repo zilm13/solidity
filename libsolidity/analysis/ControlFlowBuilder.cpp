@@ -20,12 +20,44 @@
 #include <libyul/AST.h>
 #include <libyul/backends/evm/EVMDialect.h>
 
+#include <libsolutil/Algorithms.h>
+
 using namespace solidity;
 using namespace solidity::langutil;
 using namespace solidity::frontend;
 using namespace std;
 
-ControlFlowBuilder::ControlFlowBuilder(CFG::NodeContainer& _nodeContainer, FunctionFlow const& _functionFlow):
+namespace
+{
+
+bool exitReachable(FunctionFlow const& _functionFlow)
+{
+	bool foundExit = false;
+
+	BreadthFirstSearch<CFGNode const*>{{_functionFlow.entry}}.
+		run([&](CFGNode const* _node, auto&& _addChild) {
+			if (_functionFlow.exit == _node)
+			{
+				foundExit = true;
+				return;
+			}
+			for (auto const* exit: _node->exits)
+				_addChild(exit);
+		});
+
+	return foundExit;
+}
+
+}
+
+ControlFlowBuilder::ControlFlowBuilder(
+	CFG::NodeContainer& _nodeContainer,
+	FunctionFlow const& _functionFlow,
+	ContractDefinition const* _contract,
+	map<FunctionDefinition const*, unique_ptr<FunctionFlow>>& _visitedFunctions
+):
+	m_contract(_contract),
+	m_visitedFunctions(_visitedFunctions),
 	m_nodeContainer(_nodeContainer),
 	m_currentNode(_functionFlow.entry),
 	m_returnNode(_functionFlow.exit),
@@ -34,18 +66,25 @@ ControlFlowBuilder::ControlFlowBuilder(CFG::NodeContainer& _nodeContainer, Funct
 {
 }
 
-
-unique_ptr<FunctionFlow> ControlFlowBuilder::createFunctionFlow(
-	CFG::NodeContainer& _nodeContainer,
-	FunctionDefinition const& _function
-)
+std::unique_ptr<FunctionFlow> ControlFlowBuilder::initFunctionFlow(CFG::NodeContainer& _nodeContainer)
 {
 	auto functionFlow = make_unique<FunctionFlow>();
 	functionFlow->entry = _nodeContainer.newNode();
 	functionFlow->exit = _nodeContainer.newNode();
 	functionFlow->revert = _nodeContainer.newNode();
 	functionFlow->transactionReturn = _nodeContainer.newNode();
-	ControlFlowBuilder builder(_nodeContainer, *functionFlow);
+	return functionFlow;
+}
+
+unique_ptr<FunctionFlow> ControlFlowBuilder::createFunctionFlow(
+	CFG::NodeContainer& _nodeContainer,
+	FunctionDefinition const& _function,
+	ContractDefinition const* _contract
+)
+{
+	auto functionFlow = initFunctionFlow(_nodeContainer);
+	map<FunctionDefinition const*, unique_ptr<FunctionFlow>> visitedFunctions;
+	ControlFlowBuilder builder(_nodeContainer, *functionFlow, _contract, visitedFunctions);
 	builder.appendControlFlow(_function);
 
 	return functionFlow;
@@ -277,6 +316,19 @@ bool ControlFlowBuilder::visit(FunctionCall const& _functionCall)
 				m_currentNode = nextNode;
 				return false;
 			}
+			case FunctionType::Kind::Internal:
+			case FunctionType::Kind::DelegateCall:
+			{
+				solAssert(m_revertNode, "");
+				visitNode(_functionCall);
+				_functionCall.expression().accept(*this);
+				ASTNode::listAccept(_functionCall.arguments(), *this);
+
+				checkForReverts(_functionCall);
+
+				return false;
+			}
+
 			default:
 				break;
 		}
@@ -313,6 +365,9 @@ bool ControlFlowBuilder::visit(ModifierInvocation const& _modifierInvocation)
 
 bool ControlFlowBuilder::visit(FunctionDefinition const& _functionDefinition)
 {
+	if (!_functionDefinition.isImplemented())
+		return false;
+
 	for (auto const& parameter: _functionDefinition.parameters())
 		appendControlFlow(*parameter);
 
@@ -606,6 +661,52 @@ bool ControlFlowBuilder::visitNode(ASTNode const& _node)
 	solAssert(!!m_currentNode, "");
 	m_currentNode->location = langutil::SourceLocation::smallestCovering(m_currentNode->location, _node.location());
 	return true;
+}
+
+void ControlFlowBuilder::checkForReverts(FunctionCall const& _functionCall)
+{
+	auto const& functionType = dynamic_cast<FunctionType const&>(
+		*_functionCall.expression().annotation().type
+	);
+
+	ContractDefinition const* functionContract = m_contract;
+
+	if (auto const* exprContract = dynamic_cast<ContractDefinition const*>(&_functionCall.expression()))
+		functionContract = exprContract;
+
+	if (!functionType.hasDeclaration())
+		return;
+
+	auto const& unresolvedFunctionDefinition =
+		dynamic_cast<FunctionDefinition const&>(functionType.declaration());
+
+	auto const& functionDefinition = functionContract ?
+		unresolvedFunctionDefinition.resolveVirtual(*functionContract) :
+		unresolvedFunctionDefinition;
+
+	if (!functionDefinition.isImplemented())
+		return;
+
+	if (m_visitedFunctions.count(&functionDefinition))
+		return;
+
+	auto& functionFlow = *m_visitedFunctions.emplace(&functionDefinition, initFunctionFlow(m_nodeContainer)).first->second;
+
+	ControlFlowBuilder builder(m_nodeContainer, functionFlow, functionContract, m_visitedFunctions);
+	builder.appendControlFlow(functionDefinition);
+
+	// Function does not have any exit
+	if (!exitReachable(functionFlow))
+	{
+		connect(m_currentNode, m_revertNode);
+		m_currentNode = newLabel();
+	}
+	else
+	{
+		auto nextNode = newLabel();
+		connect(m_currentNode, nextNode);
+		m_currentNode = nextNode;
+	}
 }
 
 void ControlFlowBuilder::appendControlFlow(ASTNode const& _node)
