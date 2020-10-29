@@ -48,6 +48,16 @@ using namespace solidity::util;
 using namespace solidity::langutil;
 using namespace solidity::frontend;
 
+namespace {
+
+bool addContractDependency(SharedContractDependenciesAnnotation& _annotation, ContractDefinition const* _dependency)
+{
+	_annotation.contractDependencies.insert(_dependency);
+	return !_dependency->dependenciesAreCyclic();
+}
+
+}
+
 bool TypeChecker::typeSupportedByOldABIEncoder(Type const& _type, bool _isLibraryCall)
 {
 	if (_isLibraryCall && _type.dataStoredIn(DataLocation::Storage))
@@ -332,6 +342,12 @@ void TypeChecker::endVisit(ModifierDefinition const& _modifier)
 
 bool TypeChecker::visit(FunctionDefinition const& _function)
 {
+	if (_function.isFree())
+	{
+		solAssert(m_currentFreeFunction == nullptr, "");
+		m_currentFreeFunction = &_function;
+	}
+
 	if (_function.markedVirtual())
 	{
 		if (_function.isFree())
@@ -494,6 +510,15 @@ bool TypeChecker::visit(FunctionDefinition const& _function)
 		typeCheckConstructor(_function);
 
 	return false;
+}
+
+void TypeChecker::endVisit(FunctionDefinition const& _function)
+{
+	if (_function.isFree())
+	{
+		solAssert(m_currentFreeFunction == &_function, "");
+		m_currentFreeFunction = nullptr;
+	}
 }
 
 bool TypeChecker::visit(VariableDeclaration const& _variable)
@@ -2537,17 +2562,14 @@ void TypeChecker::endVisit(NewExpression const& _newExpression)
 		if (contract->abstract())
 			m_errorReporter.typeError(4614_error, _newExpression.location(), "Cannot instantiate an abstract contract.");
 
-		if (m_currentContract)
+		if (m_currentContract || m_currentFreeFunction)
 		{
-			// TODO this is not properly detecting creation-cycles if they go through
-			// internal library functions or free functions. It will be caught at
-			// code generation time, but it would of course be better to catch it here.
-			m_currentContract->annotation().contractDependencies.insert(contract);
 			solAssert(
 				!contract->annotation().linearizedBaseContracts.empty(),
 				"Linearized base contracts not yet available."
 			);
-			if (contractDependenciesAreCyclic(*m_currentContract))
+
+			if (!addContractDependency(*currentContractDependencies(), contract))
 				m_errorReporter.typeError(
 					4579_error,
 					_newExpression.location(),
@@ -2805,6 +2827,15 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 			annotation.isPure = isPure;
 		}
 
+	auto const triggerCircularError = [&]()
+	{
+		m_errorReporter.typeError(
+			4224_error,
+			_memberAccess.location(),
+			"Circular reference for contract code access."
+		);
+	};
+
 	if (auto magicType = dynamic_cast<MagicType const*>(exprType))
 	{
 		if (magicType->kind() == MagicType::Kind::ABI)
@@ -2825,21 +2856,11 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 					"\"runtimeCode\" is not available for contracts containing immutable variables."
 				);
 
-			if (m_currentContract)
-			{
-				// TODO in the same way as with ``new``,
-				// this is not properly detecting creation-cycles if they go through
-				// internal library functions or free functions. It will be caught at
-				// code generation time, but it would of course be better to catch it here.
-
-				m_currentContract->annotation().contractDependencies.insert(&accessedContractType.contractDefinition());
-				if (contractDependenciesAreCyclic(*m_currentContract))
-					m_errorReporter.typeError(
-						4224_error,
-						_memberAccess.location(),
-						"Circular reference for contract code access."
-					);
-			}
+			if (
+				(m_currentContract || m_currentFreeFunction) &&
+				!addContractDependency(*currentContractDependencies(), &accessedContractType.contractDefinition())
+			)
+				triggerCircularError();
 		}
 		else if (magicType->kind() == MagicType::Kind::MetaType && memberName == "name")
 			annotation.isPure = true;
@@ -2851,6 +2872,15 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 		)
 			annotation.isPure = true;
 	}
+	else if (m_currentContract || m_currentFreeFunction)
+		if (auto typeType = dynamic_cast<TypeType const*>(exprType))
+			if (auto contractType = dynamic_cast<ContractType const*>(typeType->actualType()))
+				if (
+					&contractType->contractDefinition() != m_currentContract &&
+					!addContractDependency(*currentContractDependencies(), &contractType->contractDefinition())
+				)
+					triggerCircularError();
+
 
 	if (!annotation.isPure.set())
 		annotation.isPure = false;
@@ -3265,22 +3295,6 @@ void TypeChecker::endVisit(UsingForDirective const& _usingFor)
 			_usingFor.location(),
 			"The \"using for\" directive is not allowed inside interfaces."
 		);
-}
-
-bool TypeChecker::contractDependenciesAreCyclic(
-	ContractDefinition const& _contract,
-	std::set<ContractDefinition const*> const& _seenContracts
-) const
-{
-	// Naive depth-first search that remembers nodes already seen.
-	if (_seenContracts.count(&_contract))
-		return true;
-	set<ContractDefinition const*> seen(_seenContracts);
-	seen.insert(&_contract);
-	for (auto const* c: _contract.annotation().contractDependencies)
-		if (contractDependenciesAreCyclic(*c, seen))
-			return true;
-	return false;
 }
 
 Declaration const& TypeChecker::dereference(Identifier const& _identifier) const
