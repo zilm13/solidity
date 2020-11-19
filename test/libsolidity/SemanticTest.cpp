@@ -40,12 +40,13 @@ using namespace boost::unit_test;
 namespace fs = boost::filesystem;
 
 
-SemanticTest::SemanticTest(string const& _filename, langutil::EVMVersion _evmVersion, vector<boost::filesystem::path> const& _vmPaths, bool enforceViaYul):
+SemanticTest::SemanticTest(string const& _filename, langutil::EVMVersion _evmVersion, vector<boost::filesystem::path> const& _vmPaths, bool enforceViaYul, bool enforceCompileToEwasm):
 	SolidityExecutionFramework(_evmVersion, _vmPaths),
 	EVMVersionRestrictedTestCase(_filename),
 	m_sources(m_reader.sources()),
 	m_lineOffset(m_reader.lineNumber()),
-	m_enforceViaYul(enforceViaYul)
+	m_enforceViaYul(enforceViaYul),
+	m_enforceCompileToEwasm(enforceCompileToEwasm)
 {
 	string choice = m_reader.stringSetting("compileViaYul", "default");
 	if (choice == "also")
@@ -64,6 +65,7 @@ SemanticTest::SemanticTest(string const& _filename, langutil::EVMVersion _evmVer
 		m_runWithoutYul = true;
 		// Do not try to run via yul if explicitly denied.
 		m_enforceViaYul = false;
+		m_enforceCompileToEwasm = false;
 	}
 	else if (choice == "default")
 	{
@@ -106,6 +108,7 @@ TestCase::TestResult SemanticTest::run(ostream& _stream, string const& _linePref
 {
 	TestResult result = TestResult::Success;
 	bool compileViaYul = m_runWithYul || m_enforceViaYul;
+	bool compileToEwasm = m_runWithEwasm || m_enforceCompileToEwasm;
 
 	if (m_runWithoutYul)
 		result = runTest(_stream, _linePrefix, _formatted, false, false);
@@ -113,9 +116,18 @@ TestCase::TestResult SemanticTest::run(ostream& _stream, string const& _linePref
 	if (compileViaYul && result == TestResult::Success)
 		result = runTest(_stream, _linePrefix, _formatted, true, false);
 
-	if (m_runWithEwasm && result == TestResult::Success)
-		result = runTest(_stream, _linePrefix, _formatted, true, true);
-
+	if (compileToEwasm && result == TestResult::Success)
+	{
+		try
+		{
+			result = runTest(_stream, _linePrefix, _formatted, true, true);
+		}
+		catch (...)
+		{
+			if (!m_enforceCompileToEwasm)
+				throw;
+		}
+	}
 	return result;
 }
 
@@ -138,6 +150,7 @@ TestCase::TestResult SemanticTest::runTest(ostream& _stream, string const& _line
 	}
 
 	m_compileViaYulCanBeSet = false;
+	m_compileToEwasmCanBeSet = false;
 
 	if (_compileViaYul)
 		AnsiColorized(_stream, _formatted, {BOLD, CYAN}) << _linePrefix << "Running via Yul:" << endl;
@@ -238,8 +251,23 @@ TestCase::TestResult SemanticTest::runTest(ostream& _stream, string const& _line
 		return TestResult::Failure;
 	}
 
+	if (success && !m_runWithEwasm && _compileToEwasm)
+	{
+		if (m_revertStrings != RevertStrings::Default)
+			return TestResult::Success;
+
+		m_compileToEwasmCanBeSet = true;
+		AnsiColorized(_stream, _formatted, {BOLD, YELLOW})
+			<< _linePrefix << endl
+			<< _linePrefix << "Test can pass via Yul (ewasm), but marked with \"compileToEwasm: false.\"" << endl;
+		return TestResult::Failure;
+	}
+
 	if (!success && (m_runWithYul || !_compileViaYul))
 	{
+		if (!m_runWithEwasm && m_enforceCompileToEwasm)
+			return TestResult::Success;
+
 		AnsiColorized(_stream, _formatted, {BOLD, CYAN}) << _linePrefix << "Expected result:" << endl;
 		for (auto const& test: m_tests)
 		{
@@ -331,11 +359,28 @@ void SemanticTest::printUpdatedSettings(ostream& _stream, string const& _linePre
 		return;
 
 	_stream << _linePrefix << "// ====" << endl;
-	if (m_compileViaYulCanBeSet)
+	if (m_compileToEwasmCanBeSet)
+	{
+		// if test was already configured to run via yul,
+		// we need to preserve the original settings.
+		if (m_runWithYul)
+		{
+			// if test was also configured to run without yul.
+			if (m_runWithoutYul)
+				_stream << _linePrefix << "// compileViaYul: also\n";
+			// if test was configured only to run with yul.
+			else
+				_stream << _linePrefix << "// compileViaYul: true\n";
+		}
+
+		_stream << _linePrefix << "// compileToEwasm: also\n";
+	}
+	else if (m_compileViaYulCanBeSet)
 		_stream << _linePrefix << "// compileViaYul: also\n";
+
 	for (auto const& setting: settings)
-		if (!m_compileViaYulCanBeSet || setting.first != "compileViaYul")
-		_stream << _linePrefix << "// " << setting.first << ": " << setting.second << endl;
+		if (!(m_compileViaYulCanBeSet || m_compileToEwasmCanBeSet) || setting.first != "compileViaYul")
+			_stream << _linePrefix << "// " << setting.first << ": " << setting.second << endl;
 }
 
 void SemanticTest::parseExpectations(istream& _stream)
