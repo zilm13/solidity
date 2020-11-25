@@ -151,7 +151,6 @@ bool TestTool::m_exitRequested = false;
 TestTool::Result TestTool::process()
 {
 	bool formatted{!m_options.noColor};
-	std::stringstream outputMessages;
 
 	try
 	{
@@ -166,6 +165,8 @@ TestTool::Result TestTool::process()
 				m_options.enforceViaYul
 			});
 			if (m_test->shouldRun())
+			{
+				std::stringstream outputMessages;
 				switch (TestCase::TestResult result = m_test->run(outputMessages, "  ", formatted))
 				{
 					case TestCase::TestResult::Success:
@@ -181,6 +182,7 @@ TestTool::Result TestTool::process()
 						cout << endl << outputMessages.str() << endl;
 						return result == TestCase::TestResult::FatalError ? Result::Exception : Result::Failure;
 				}
+			}
 			else
 			{
 				AnsiColorized(cout, formatted, {BOLD, YELLOW}) << "NOT RUN" << endl;
