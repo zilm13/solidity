@@ -131,6 +131,7 @@ private:
 		Quit
 	};
 
+	void updateTestCase();
 	Request handleResponse(bool _exception);
 
 	TestCreator m_testCaseCreator;
@@ -211,6 +212,15 @@ TestTool::Result TestTool::process()
 	}
 }
 
+void TestTool::updateTestCase()
+{
+	ofstream file(m_path.string(), ios::trunc);
+	m_test->printSource(file);
+	m_test->printUpdatedSettings(file);
+	file << "// ----" << endl;
+	m_test->printUpdatedExpectations(file, "// ");
+}
+
 TestTool::Request TestTool::handleResponse(bool _exception)
 {
 	if (_exception)
@@ -232,11 +242,7 @@ TestTool::Request TestTool::handleResponse(bool _exception)
 			else
 			{
 				cout << endl;
-				ofstream file(m_path.string(), ios::trunc);
-				m_test->printSource(file);
-				m_test->printUpdatedSettings(file);
-				file << "// ----" << endl;
-				m_test->printUpdatedExpectations(file, "// ");
+				updateTestCase();
 				return Request::Rerun;
 			}
 		case 'e':
@@ -318,6 +324,7 @@ TestStats TestTool::processPath(
 				}
 				break;
 			case Result::Success:
+				testTool.updateTestCase();
 				paths.pop();
 				++successCount;
 				break;
