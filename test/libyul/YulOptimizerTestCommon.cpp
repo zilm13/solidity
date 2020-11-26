@@ -16,6 +16,7 @@
 */
 // SPDX-License-Identifier: GPL-3.0
 
+#include <boost/system/error_code.hpp>
 #include <test/libyul/YulOptimizerTestCommon.h>
 
 #include <libyul/optimiser/BlockFlattener.h>
@@ -32,6 +33,7 @@
 #include <libyul/optimiser/ExpressionSplitter.h>
 #include <libyul/optimiser/FunctionGrouper.h>
 #include <libyul/optimiser/FunctionHoister.h>
+#include <libyul/optimiser/FunctionSpecializer.h>
 #include <libyul/optimiser/ExpressionInliner.h>
 #include <libyul/optimiser/FullInliner.h>
 #include <libyul/optimiser/ForLoopConditionIntoBody.h>
@@ -150,6 +152,11 @@ YulOptimizerTestCommon::YulOptimizerTestCommon(
 		{"functionHoister", [&]() {
 			disambiguate();
 			FunctionHoister::run(*m_context, *m_ast);
+		}},
+		{"functionSpecializer", [&]() {
+			disambiguate();
+			FunctionHoister::run(*m_context, *m_object->code);
+			FunctionSpecializer::run(*m_context, *m_object->code);
 		}},
 		{"expressionInliner", [&]() {
 			disambiguate();

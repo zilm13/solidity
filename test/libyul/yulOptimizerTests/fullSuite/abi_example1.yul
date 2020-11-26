@@ -508,7 +508,7 @@
 //         for { } lt(i, length) { i := add(i, 1) }
 //         {
 //             if iszero(slt(add(src, _1), end)) { revert(0, 0) }
-//             let dst_1 := allocateMemory(_3)
+//             let dst_1 := allocateMemory_967()
 //             let dst_2 := dst_1
 //             let src_1 := src
 //             let _4 := add(src, _3)
@@ -554,6 +554,13 @@
 //         let offset_1 := calldataload(add(headStart, 96))
 //         if gt(offset_1, _2) { revert(value3, value3) }
 //         value3 := abi_decode_t_array$_t_array$_t_uint256_memory_$dyn(add(headStart, offset_1), dataEnd)
+//     }
+//     function allocateMemory_967() -> memPtr
+//     {
+//         memPtr := mload(64)
+//         let newFreePtr := add(memPtr, 64)
+//         if or(gt(newFreePtr, 0xffffffffffffffff), lt(newFreePtr, memPtr)) { revert(0, 0) }
+//         mstore(64, newFreePtr)
 //     }
 //     function allocateMemory(size) -> memPtr
 //     {
