@@ -35,6 +35,11 @@
 #include <memory>
 #include <string>
 
+namespace evmasm
+{
+class Assembly;
+}
+
 namespace solidity::langutil
 {
 class Scanner;
@@ -94,6 +99,11 @@ public:
 	/// a second object that is guessed to be the runtime code.
 	/// Only available for EVM.
 	std::pair<MachineAssemblyObject, MachineAssemblyObject> assembleAndGuessRuntime() const;
+
+	/// Run the assembly step (should only be called after parseAndAnalyze).
+	/// Return the underling assembler object.
+	/// Only available for EVM.
+	std::shared_ptr<evmasm::Assembly> assembleEVM() const;
 
 	/// @returns the errors generated during parsing, analysis (and potentially assembly).
 	langutil::ErrorList const& errors() const { return m_errors; }
