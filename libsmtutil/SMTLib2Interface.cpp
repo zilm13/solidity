@@ -233,12 +233,12 @@ string SMTLib2Interface::toSmtLibSort(Sort const& _sort)
 		string tupleName = "|" + tupleSort.name + "|";
 		if (!m_userSorts.count(tupleName))
 		{
-			m_userSorts.insert(tupleName);
 			string decl("(declare-datatypes ((" + tupleName + " 0)) (((" + tupleName);
 			smtAssert(tupleSort.members.size() == tupleSort.components.size(), "");
 			for (unsigned i = 0; i < tupleSort.members.size(); ++i)
 				decl += " (|" + tupleSort.members.at(i) + "| " + toSmtLibSort(*tupleSort.components.at(i)) + ")";
 			decl += "))))";
+			m_userSorts.emplace(tupleName, decl);
 			write(decl);
 		}
 
