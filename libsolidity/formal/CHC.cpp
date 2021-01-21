@@ -1349,13 +1349,40 @@ void CHC::verificationTargetEncountered(
 	auto previousError = errorFlag().currentValue();
 	errorFlag().increaseIndex();
 
-	// create an error edge to the summary
-	solAssert(m_errorDest, "");
-	connectBlocks(
-		m_currentBlock,
-		predicate(*m_errorDest),
-		_errorCondition && errorFlag().currentValue() == errorId
-	);
+	Predicate const* localBlock = nullptr;
+	if (m_currentFunction)
+	{
+		auto const& functionBody = m_currentFunction->body();
+		localBlock = createBlock(&functionBody, PredicateType::FunctionBlock);
+		auto pred = predicate(*localBlock);
+		connectBlocks(
+			m_currentBlock,
+			pred,
+			_errorCondition && errorFlag().currentValue() == errorId
+		);
+		connectBlocks(pred, predicate(*m_errorDest));
+	}
+	else
+	{
+		localBlock = createConstructorBlock(*m_currentContract, "local_error");
+		auto pred = predicate(*localBlock);
+		connectBlocks(
+			m_currentBlock,
+			pred,
+			_errorCondition && errorFlag().currentValue() == errorId
+		);
+		connectBlocks(pred, predicate(*m_errorDest));
+
+		/*
+		// create an error edge to the summary
+		solAssert(m_errorDest, "");
+		connectBlocks(
+			m_currentBlock,
+			predicate(*m_errorDest),
+			_errorCondition && errorFlag().currentValue() == errorId
+		);
+		*/
+	}
 
 	m_context.addAssertion(errorFlag().currentValue() == previousError);
 }
@@ -1527,6 +1554,8 @@ optional<string> CHC::generateCounterexample(CHCSolverInterface::CexGraph const&
 		}
 	if (!rootId)
 		return {};
+
+	cout << cex2dot(_graph) << endl;
 
 	vector<string> path;
 	string localState;
