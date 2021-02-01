@@ -49,13 +49,19 @@ SemanticTest::SemanticTest(string const& _filename, langutil::EVMVersion _evmVer
 	m_enforceViaYul(enforceViaYul)
 {
 	using namespace std::placeholders;
-	m_builtins
-		= {{"smoke",
-			{
-				{"test0()", std::bind(&SemanticTest::builtinSmokeTest, this, _1)},
-				{"test1(uint256)", std::bind(&SemanticTest::builtinSmokeTest, this, _1)},
-				{"test2(uint256,uint256)", std::bind(&SemanticTest::builtinSmokeTest, this, _1)},
-			}}};
+	m_builtins = {
+		{"smoke",
+		 {
+			 {"test0()", std::bind(&SemanticTest::builtinSmokeTest, this, _1)},
+			 {"test1(uint256)", std::bind(&SemanticTest::builtinSmokeTest, this, _1)},
+			 {"test2(uint256,uint256)", std::bind(&SemanticTest::builtinSmokeTest, this, _1)},
+		 }},
+		{"contract",
+		 {
+			 {"balance()", std::bind(&SemanticTest::builtinContractBalance, this, _1)},
+			 {"balance(uint256)", std::bind(&SemanticTest::builtinContractBalance, this, _1)},
+		 }},
+	};
 
 	string choice = m_reader.stringSetting("compileViaYul", "default");
 	if (choice == "also")
@@ -400,4 +406,17 @@ bytes SemanticTest::builtinSmokeTest(FunctionCall const& call)
 	for (const auto & parameter : call.arguments.parameters)
 		result += util::toBigEndian(u256{util::fromHex(parameter.rawString)});
 	return result;
+}
+
+bytes SemanticTest::builtinContractBalance(FunctionCall const& call)
+{
+	assert(call.arguments.parameters.size() <= 1);
+	if (call.arguments.parameters.empty())
+		return util::toBigEndian(SolidityExecutionFramework::balanceAt(m_contractAddress));
+	else
+	{
+		h160 address{util::fromHex(call.arguments.parameters.at(0).rawString)};
+		return util::toBigEndian(SolidityExecutionFramework::balanceAt(address));
+	}
+	return bytes{};
 }
