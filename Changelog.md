@@ -1,6 +1,7 @@
 ### 0.8.2 (unreleased)
 
 Language Features:
+ * Support user-defined errors: ``error X(uint a);``, ``require(c, X(7));``, ``revert(X(7));``
 
 
 Compiler Features:
@@ -8,6 +9,10 @@ Compiler Features:
 
 Bugfixes:
  * SMTChecker: Fix missing type constraints on block and transaction variables in the deployment phase.
+
+AST Changes:
+ * Support user-defined errors.
+
 
 
 ### 0.8.1 (2021-01-27)
