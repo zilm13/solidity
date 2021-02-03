@@ -199,7 +199,7 @@ MachineAssemblyObject AssemblyStack::assemble(Machine _machine) const
 	switch (_machine)
 	{
 	case Machine::EVM:
-		return assembleAndGuessRuntime().first;
+		return assembleWithDeployed().first;
 	case Machine::EVM15:
 	{
 		MachineAssemblyObject object;
@@ -226,7 +226,7 @@ MachineAssemblyObject AssemblyStack::assemble(Machine _machine) const
 	return MachineAssemblyObject();
 }
 
-pair<MachineAssemblyObject, MachineAssemblyObject> AssemblyStack::assembleAndGuessRuntime() const
+std::pair<MachineAssemblyObject, MachineAssemblyObject> AssemblyStack::assembleWithDeployed(optional<string_view> _runtimeName) const
 {
 	yulAssert(m_analysisSuccessful, "");
 	yulAssert(m_parserResult, "");
@@ -249,21 +249,38 @@ pair<MachineAssemblyObject, MachineAssemblyObject> AssemblyStack::assembleAndGue
 	);
 
 	MachineAssemblyObject runtimeObject;
-	// Heuristic: If there is a single sub-assembly, this is likely the runtime object.
-	if (assembly.numSubs() == 1)
-	{
-		evmasm::Assembly& runtimeAssembly = assembly.sub(0);
-		runtimeObject.bytecode = make_shared<evmasm::LinkerObject>(runtimeAssembly.assemble());
-		runtimeObject.assembly = runtimeAssembly.assemblyString();
-		runtimeObject.sourceMappings = make_unique<string>(
-			evmasm::AssemblyItem::computeSourceMapping(
-				runtimeAssembly.items(),
-				{{scanner().charStream() ? scanner().charStream()->name() : "", 0}}
-			)
-		);
-	}
-	return {std::move(creationObject), std::move(runtimeObject)};
 
+	auto initRuntimeObject = [&](size_t i)
+	{
+			evmasm::Assembly& runtimeAssembly = assembly.sub(i);
+			runtimeObject.bytecode = make_shared<evmasm::LinkerObject>(runtimeAssembly.assemble());
+			runtimeObject.assembly = runtimeAssembly.assemblyString();
+			runtimeObject.sourceMappings = make_unique<string>(
+				evmasm::AssemblyItem::computeSourceMapping(
+					runtimeAssembly.items(),
+					{{scanner().charStream() ? scanner().charStream()->name() : "", 0}}
+				)
+			);
+	};
+
+	// Pick matching runtime assembly if name was given
+	if (_runtimeName.has_value())
+	{
+		for (size_t i = 0; i < assembly.numSubs(); i++)
+			if (assembly.name() == _runtimeName)
+			{
+				initRuntimeObject(i);
+				break;
+			}
+
+		solAssert(!runtimeObject.assembly.empty(), "Failed to find runtime object.");
+	}
+	// Otherwise use heuristic: If there is a single sub-assembly, this is likely the runtime object.
+	else if (assembly.numSubs() == 1)
+		initRuntimeObject(0);
+
+
+	return {std::move(creationObject), std::move(runtimeObject)};
 }
 
 string AssemblyStack::print() const
