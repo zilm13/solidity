@@ -2039,6 +2039,9 @@ void TypeChecker::typeCheckFunctionGeneralChecks(
 	solAssert(!!_functionType, "");
 	solAssert(_functionType->kind() != FunctionType::Kind::ABIDecode, "");
 
+	if (_functionType->kind() == FunctionType::Kind::ArrayPop)
+		return;
+
 	bool const isPositionalCall = _functionCall.names().empty();
 	bool const isVariadic = _functionType->takesArbitraryParameters();
 
@@ -2350,6 +2353,23 @@ bool TypeChecker::visit(FunctionCall const& _functionCall)
 			functionType->kind() == FunctionType::Kind::ByteArrayPush
 		)
 			isLValue = functionType->parameterTypes().empty();
+
+		if (functionType->kind() == FunctionType::Kind::ArrayPop)
+		{
+			functionType = TypeProvider::function(
+				{expressionType},
+				{},
+				{"arrayType"},
+				{},
+				FunctionType::Kind::ArrayPop,
+				false,
+				StateMutability::NonPayable,
+				nullptr,
+				false,
+				false,
+				true,
+				false);
+		}
 
 		break;
 
@@ -2804,6 +2824,7 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 
 	VirtualLookup requiredLookup = VirtualLookup::Static;
 
+	bool isArrayPop = false;
 	if (auto funType = dynamic_cast<FunctionType const*>(annotation.type))
 	{
 		solAssert(
@@ -2834,6 +2855,9 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 				"Storage arrays with nested mappings do not support .push(<arg>)."
 			);
 
+		if (funType->kind() == FunctionType::Kind::ArrayPop && memberName == "pop")
+			isArrayPop = true;
+
 		if (!funType->bound())
 			if (auto typeType = dynamic_cast<TypeType const*>(exprType))
 			{
@@ -2842,6 +2866,21 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 					requiredLookup = VirtualLookup::Super;
 			}
 	}
+
+	if (isArrayPop)
+		annotation.type = TypeProvider::function(
+			{dynamic_cast<ArrayType const*>(exprType)},
+			{},
+			{"arrayType"},
+			{},
+			FunctionType::Kind::ArrayPop,
+			false,
+			StateMutability::NonPayable,
+			nullptr,
+			false,
+			false,
+			true,
+			false);
 
 	annotation.requiredLookup = requiredLookup;
 

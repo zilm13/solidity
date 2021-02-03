@@ -1014,13 +1014,10 @@ bool ExpressionCompiler::visit(FunctionCall const& _functionCall)
 		case FunctionType::Kind::ArrayPop:
 		{
 			_functionCall.expression().accept(*this);
-			solAssert(function.parameterTypes().empty(), "");
-
-			ArrayType const& arrayType = dynamic_cast<ArrayType const&>(
-				*dynamic_cast<MemberAccess const&>(_functionCall.expression()).expression().annotation().type
-			);
+//			solAssert(function.bound(), "");
+			solAssert(function.parameterTypes().size() == 1, "");
+			ArrayType const& arrayType = *dynamic_cast<ArrayType const*>(function.parameterTypes().at(0));
 			solAssert(arrayType.dataStoredIn(DataLocation::Storage), "");
-
 			ArrayUtils(m_context).popStorageArrayElement(arrayType);
 			break;
 		}
