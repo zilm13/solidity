@@ -35,9 +35,9 @@ using Token = soltest::Token;
 string TestFunctionCall::format(
 	ErrorReporter& _errorReporter,
 	string const& _linePrefix,
-	bool const _renderResult,
+	RenderMode _renderMode,
 	bool const _highlight,
-	bool const _renderGasCostResult
+	bool const _interactivePrint
 ) const
 {
 	stringstream stream;
@@ -66,9 +66,12 @@ string TestFunctionCall::format(
 			stream << _linePrefix << newline << ws << "storage" << colon << ws;
 			soltestAssert(m_rawBytes.size() == 1, "");
 			soltestAssert(m_call.expectations.rawBytes().size() == 1, "");
-			bool isEmpty = _renderResult ? m_rawBytes.front() == 0 : m_call.expectations.rawBytes().front() == 0;
+			bool isEmpty =
+				_renderMode == RenderMode::ResultsOnly ?
+				m_rawBytes.front() == 0 :
+				m_call.expectations.rawBytes().front() == 0;
 			string output = isEmpty ? "empty" : "nonempty";
-			if (_renderResult && !matchesExpectation())
+			if (_renderMode == RenderMode::ResultsOnly && !matchesExpectation())
 				AnsiColorized(stream, highlight, {util::formatting::RED_BACKGROUND}) << output;
 			else
 				stream << output;
@@ -105,7 +108,7 @@ string TestFunctionCall::format(
 
 			if (m_call.omitsArrow)
 			{
-				if (_renderResult && (m_failure || !matchesExpectation()))
+				if (_renderMode == RenderMode::ResultsOnly && (m_failure || !matchesExpectation()))
 					stream << ws << arrow;
 			}
 			else
@@ -124,11 +127,11 @@ string TestFunctionCall::format(
 
 		/// Format either the expected output or the actual result output
 		string result;
-		if (!_renderResult)
+		if (_renderMode != RenderMode::ResultsOnly)
 		{
 			bool const isFailure = m_call.expectations.failure;
 			result = isFailure ?
-				formatFailure(_errorReporter, m_call, m_rawBytes, _renderResult, highlight) :
+				formatFailure(_errorReporter, m_call, m_rawBytes, _renderMode == RenderMode::GasResults, highlight) :
 				formatRawParameters(m_call.expectations.result);
 			if (!result.empty())
 				AnsiColorized(stream, highlight, {util::formatting::RED_BACKGROUND}) << ws << result;
@@ -141,7 +144,7 @@ string TestFunctionCall::format(
 			bytes output = m_rawBytes;
 			bool const isFailure = m_failure;
 			result = isFailure ?
-				formatFailure(_errorReporter, m_call, output, _renderResult, highlight) :
+				formatFailure(_errorReporter, m_call, output, _renderMode == RenderMode::GasResults, highlight) :
 				matchesExpectation() ?
 					formatRawParameters(m_call.expectations.result) :
 					formatBytesParameters(
@@ -205,7 +208,7 @@ string TestFunctionCall::format(
 			}
 		}
 
-		stream << formatGasExpectations(_linePrefix, _renderGasCostResult);
+		stream << formatGasExpectations(_linePrefix, _renderMode == RenderMode::GasResults, _interactivePrint);
 	};
 
 	formatOutput(m_call.displayMode == FunctionCall::DisplayMode::SingleLine);
@@ -321,12 +324,47 @@ string TestFunctionCall::formatRawParameters(
 	return os.str();
 }
 
-string TestFunctionCall::formatGasExpectations(string const& _linePrefix, bool const _renderGasCostResult) const
+string TestFunctionCall::formatGasExpectations(
+	string const& _linePrefix,
+	bool const _renderGasCostResult,
+	bool const _debugGasPrint
+) const
 {
 	stringstream os;
 	for (auto const& [runType, gasUsed]: (_renderGasCostResult ? m_gasCosts : m_call.expectations.gasUsed))
+	{
+		bool differentResults =
+			m_gasCosts.count(runType) > 0 &&
+			m_call.expectations.gasUsed.count(runType) > 0 &&
+			m_gasCosts.at(runType) != m_call.expectations.gasUsed.at(runType);
+		bool increase =
+			differentResults ?
+			(m_gasCosts.at(runType) > m_call.expectations.gasUsed.at(runType)) :
+			false;
+		u256 difference = 0;
+		if (differentResults)
+			difference =
+				increase ?
+				(m_gasCosts.at(runType) - m_call.expectations.gasUsed.at(runType)) :
+				(m_call.expectations.gasUsed.at(runType) - m_gasCosts.at(runType));
+		size_t percent =
+			differentResults ?
+			static_cast<size_t>(
+				100.0 * (static_cast<double>(difference) / static_cast<double>(m_call.expectations.gasUsed.at(runType)))
+			) :
+			0;
+
 		if (!runType.empty())
+		{
 			os << endl << _linePrefix << "// gas " << runType << ": " << (gasUsed.str());
+			string sign = (increase ? "+" : "-");
+			os << (
+			   	(_debugGasPrint && differentResults && _renderGasCostResult) ?
+				(" ["s + sign + difference.str() + " (" + sign + to_string(percent)) + "%)]" :
+				""s
+			);
+		}
+	}
 	return os.str();
 }
 
