@@ -8,7 +8,7 @@ Structure of a Contract
 
 Contracts in Solidity are similar to classes in object-oriented languages.
 Each contract can contain declarations of :ref:`structure-state-variables`, :ref:`structure-functions`,
-:ref:`structure-function-modifiers`, :ref:`structure-events`, :ref:`structure-struct-types` and :ref:`structure-enum-types`.
+:ref:`structure-function-modifiers`, :ref:`structure-events`, :ref:`structure-errors`, :ref:`structure-struct-types` and :ref:`structure-enum-types`.
 Furthermore, contracts can inherit from other contracts.
 
 There are also special kinds of contracts called :ref:`libraries<libraries>` and :ref:`interfaces<interfaces>`.
