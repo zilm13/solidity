@@ -216,14 +216,181 @@ BOOST_AUTO_TEST_CASE(function_params_and_retparams_partly_unused)
 	})";
 	BOOST_CHECK_EQUAL(assemble(in),
 		"PUSH1 0x1F JUMP "
-		"JUMPDEST PUSH1 0x0 PUSH1 0x0 "
-		"PUSH1 0x3 SWAP4 POP "
+		"JUMPDEST "
+		"PUSH1 0x3 SWAP2 POP "
+		"PUSH1 0x0 PUSH1 0x0 "
 		"PUSH1 0x9 PUSH1 0x2 SWAP2 POP "
 		"DUP2 DUP2 MSTORE "
 		"POP JUMPDEST SWAP5 POP SWAP5 SWAP3 POP POP POP JUMP "
 		"JUMPDEST "
 	);
 }
+
+BOOST_AUTO_TEST_CASE(function_retparam_unassigned)
+{
+	string in = R"({
+		function f() -> x { pop(callvalue()) }
+	})";
+	BOOST_CHECK_EQUAL(assemble(in),
+		"PUSH1 0xB JUMP "
+		"JUMPDEST "
+		"CALLVALUE POP "
+		"PUSH1 0x0 JUMPDEST "
+		"SWAP1 JUMP "
+		"JUMPDEST "
+	);
+}
+
+BOOST_AUTO_TEST_CASE(function_retparam_unassigned_multiple)
+{
+	string in = R"({
+		function f() -> x, y, z { pop(callvalue()) }
+	})";
+	BOOST_CHECK_EQUAL(assemble(in),
+		"PUSH1 0x11 JUMP "
+		"JUMPDEST "
+		"CALLVALUE POP "
+		"PUSH1 0x0 PUSH1 0x0 PUSH1 0x0 JUMPDEST "
+		"SWAP1 SWAP2 SWAP3 JUMP JUMPDEST "
+	);
+}
+
+BOOST_AUTO_TEST_CASE(function_retparam_leave)
+{
+	string in = R"({
+		function f() -> x { pop(address()) leave pop(callvalue()) }
+	})";
+	BOOST_CHECK_EQUAL(assemble(in),
+		"PUSH1 0x10 JUMP " // jump to f
+		"JUMPDEST " // start of f
+		"ADDRESS POP " // pop(address())
+		"PUSH1 0x0 " // init of x
+		"PUSH1 0xD JUMP " // leave
+		"CALLVALUE POP " // pop(callvalue())
+		"JUMPDEST " // function exit
+		"SWAP1 " // swap x and return tag
+		"JUMP " // return
+		"JUMPDEST " // return tag
+	);
+}
+
+BOOST_AUTO_TEST_CASE(function_retparam_declaration)
+{
+	string in = R"({
+		function f() -> x { pop(address()) let y := callvalue() }
+	})";
+	BOOST_CHECK_EQUAL(assemble(in),
+		"PUSH1 0xD JUMP " // jump to f
+		"JUMPDEST " // start of f
+		"ADDRESS POP " // pop(address())
+		"PUSH1 0x0 " // init of x
+		"CALLVALUE " // let y := callvalue()
+		"POP " // y out of scope
+		"JUMPDEST " // exit tag
+		"SWAP1 " // swap x and return tag
+		"JUMP " // return
+		"JUMPDEST " // return tag
+	);
+}
+
+BOOST_AUTO_TEST_CASE(function_retparam_read)
+{
+	string in = R"({
+		function f() -> x { pop(address()) sstore(0, x) pop(callvalue()) }
+	})";
+	BOOST_CHECK_EQUAL(assemble(in),
+		"PUSH1 0x11 JUMP " // jump to f
+		"JUMPDEST " // entry of f
+		"ADDRESS POP " // pop(address())
+		"PUSH1 0x0 " // init of x
+		"DUP1 PUSH1 0x0 SSTORE " // sstore(0, x)
+		"CALLVALUE POP " // pop(callvalue())
+		"JUMPDEST " // exit tag
+		"SWAP1 " // swap x and return tag
+		"JUMP " // return
+		"JUMPDEST " // return tag
+	);
+}
+
+
+BOOST_AUTO_TEST_CASE(function_retparam_block)
+{
+	string in = R"({
+		function f() -> x { pop(address()) { pop(callvalue()) } }
+	})";
+	BOOST_CHECK_EQUAL(assemble(in),
+		"PUSH1 0xD JUMP " // jump to f
+		"JUMPDEST " // start of f
+		"ADDRESS POP " // pop(address())
+		"PUSH1 0x0 " // init of x
+		"CALLVALUE POP " // pop(callvalue())
+		"JUMPDEST " // exit tag
+		"SWAP1 " // swap x and return tag
+		"JUMP " // return
+		"JUMPDEST " // return tag
+	);
+}
+
+BOOST_AUTO_TEST_CASE(function_retparam_if)
+{
+	string in = R"({
+		function f() -> x { pop(address()) if 1 { pop(callvalue()) } }
+	})";
+	BOOST_CHECK_EQUAL(assemble(in),
+		"PUSH1 0x14 JUMP " // jump to f
+		"JUMPDEST " // start of f
+		"ADDRESS POP " // pop(address())
+		"PUSH1 0x0 " // init of x
+		"PUSH1 0x1 ISZERO PUSH1 0x10 JUMPI CALLVALUE POP JUMPDEST " // if 1 { pop(vallvalue()) }
+		"JUMPDEST " // exit tag
+		"SWAP1 " // swap x and return tag
+		"JUMP " // return
+		"JUMPDEST " // return tag
+	);
+}
+
+
+BOOST_AUTO_TEST_CASE(function_retparam_for)
+{
+	string in = R"({
+		function f() -> x { pop(address()) for { pop(callvalue()) } 0 {} { } }
+	})";
+	BOOST_CHECK_EQUAL(assemble(in),
+		"PUSH1 0x19 JUMP " // jump to f
+		"JUMPDEST " // start of f
+		"ADDRESS POP " // pop(address())
+		"PUSH1 0x0 " // init of x
+		"CALLVALUE POP JUMPDEST PUSH1 0x0 ISZERO PUSH1 0x15 JUMPI JUMPDEST PUSH1 0xA JUMP JUMPDEST " // for loop
+		"JUMPDEST " // exit tag
+		"SWAP1 " // swap x and return tag
+		"JUMP " // return
+		"JUMPDEST " // return tag
+	);
+}
+
+BOOST_AUTO_TEST_CASE(function_argument_reuse)
+{
+	string in = R"({
+		function f(a, b, c) -> x { pop(address()) sstore(a, c) pop(callvalue()) x := b }
+	})";
+	BOOST_CHECK_EQUAL(assemble(in),
+		"PUSH1 0x17 JUMP " // jump to f
+		"JUMPDEST " // start of f
+		"ADDRESS POP " // pop(address())
+		"DUP3 DUP2 SSTORE " // sstore(a, c)
+		"CALLVALUE POP " // pop(callvalue())
+		"PUSH1 0x0 " // init of x
+		"DUP3 " // b
+		"SWAP1 POP " // x := b
+		"JUMPDEST " // exit tag
+		"SWAP4 SWAP3 " // move return tag and x
+		"POP POP POP " // pop arguments
+		"JUMP " // return
+		"JUMPDEST " // return tag
+	);
+}
+
+
 
 BOOST_AUTO_TEST_CASE(function_with_body_embedded)
 {

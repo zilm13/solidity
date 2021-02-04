@@ -4,6 +4,7 @@ Language Features:
 
 
 Compiler Features:
+ * Yul EVM Code Transform: Stack Optimization: Defer allocating stack slots for return variables until after the first expression statements and assignments that do not reference them.
 
 
 Bugfixes:

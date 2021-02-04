@@ -141,7 +141,8 @@ public:
 		_evm15,
 		_identifierAccess,
 		_useNamedLabelsForFunctions,
-		nullptr
+		nullptr,
+		{}
 	)
 	{
 	}
@@ -161,7 +162,8 @@ protected:
 		bool _evm15,
 		ExternalIdentifierAccess _identifierAccess,
 		bool _useNamedLabelsForFunctions,
-		std::shared_ptr<Context> _context
+		std::shared_ptr<Context> _context,
+		std::vector<YulString> _delayedReturnVariables
 	);
 
 	void decreaseReference(YulString _name, Scope::Variable const& _var);
@@ -238,6 +240,8 @@ private:
 	/// statement level in the scope where the variable was defined.
 	std::set<Scope::Variable const*> m_variablesScheduledForDeletion;
 	std::set<int> m_unusedStackSlots;
+
+	std::vector<YulString> m_delayedReturnVariables;
 
 	std::vector<StackTooDeepError> m_stackErrors;
 };
