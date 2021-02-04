@@ -78,7 +78,7 @@ private:
 	/// Checks that different functions with external visibility end up having different
 	/// external argument types (i.e. different signature).
 	void checkExternalTypeClashes(ContractDefinition const& _contract);
-	/// Checks for hash collisions in external function signatures.
+	/// Checks for hash collisions in external function signatures and errors.
 	void checkHashCollisions(ContractDefinition const& _contract);
 	/// Checks that all requirements for a library are fulfilled if this is a library.
 	void checkLibraryRequirements(ContractDefinition const& _contract);
