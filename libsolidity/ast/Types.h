@@ -100,16 +100,26 @@ class MemberList
 public:
 	struct Member
 	{
-		Member(std::string _name, Type const* _type, Declaration const* _declaration = nullptr):
+		Member(std::string _name, Type const* _type):
+			name(std::move(_name)),
+			type(_type),
+			declaration(nullptr)
+		{
+		}
+
+		Member(std::string _name, Type const* _type, Declaration const* _declaration):
 			name(std::move(_name)),
 			type(_type),
 			declaration(_declaration)
 		{
 		}
 
+		/// Constructs a Member with the name extracted from @p _declaration's name.
+		Member(Declaration const* _declaration, Type const* _type);
+
 		std::string name;
 		Type const* type;
-		Declaration const* declaration = nullptr;
+		Declaration const* declaration;
 	};
 
 	using MemberMap = std::vector<Member>;
