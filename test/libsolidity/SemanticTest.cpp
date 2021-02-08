@@ -52,9 +52,9 @@ SemanticTest::SemanticTest(string const& _filename, langutil::EVMVersion _evmVer
 	m_builtins
 		= {{"smoke",
 			{
-				{"test0()", std::bind(&SemanticTest::builtinSmokeTest, this, _1)},
-				{"test1(uint256)", std::bind(&SemanticTest::builtinSmokeTest, this, _1)},
-				{"test2(uint256,uint256)", std::bind(&SemanticTest::builtinSmokeTest, this, _1)},
+				{"test0", {std::bind(&SemanticTest::builtinSmokeTest, this, _1)}},
+				{"test1", {std::bind(&SemanticTest::builtinSmokeTest, this, _1)}},
+				{"test2", {std::bind(&SemanticTest::builtinSmokeTest, this, _1)}},
 			}}};
 
 	string choice = m_reader.stringSetting("compileViaYul", "default");
@@ -211,9 +211,9 @@ TestCase::TestResult SemanticTest::runTest(ostream& _stream, string const& _line
 			{
 				std::vector<string> builtinPath;
 				boost::split(builtinPath, test.call().signature, boost::is_any_of("."));
-				assert(builtinPath.size() == 2);
+				soltestAssert(builtinPath.size() == 2, "");
 				auto builtin = m_builtins[builtinPath.front()][builtinPath.back()];
-				output = builtin(test.call());
+				output = builtin.function(test.call());
 				test.setFailure(output.empty());
 			}
 			else
@@ -238,7 +238,7 @@ TestCase::TestResult SemanticTest::runTest(ostream& _stream, string const& _line
 				boost::split(builtinPath, test.call().expectations.builtin->signature, boost::is_any_of("."));
 				assert(builtinPath.size() == 2);
 				auto builtin = m_builtins[builtinPath.front()][builtinPath.back()];
-				expectationOutput = builtin(*test.call().expectations.builtin);
+				expectationOutput = builtin.function(*test.call().expectations.builtin);
 			}
 			else
 				expectationOutput = test.call().expectations.rawBytes();

@@ -218,6 +218,9 @@ pair<string, bool> TestFileParser::parseFunctionSignature()
 		expect(Token::Identifier);
 	}
 
+	if (signature.find('.') != string::npos)
+		return {signature, false};
+
 	signature += formatToken(Token::LParen);
 	expect(Token::LParen);
 
