@@ -2748,9 +2748,8 @@ FunctionType::FunctionType(ErrorDefinition const& _error):
 		m_parameterNames.size() == m_parameterTypes.size(),
 		"Parameter names list must match parameter types list!"
 	);
-	// TODO actually they have to be empty.
 	solAssert(
-		m_returnParameterNames.size() == m_returnParameterTypes.size(),
+		m_returnParameterNames.empty() && m_returnParameterTypes.empty(),
 		"Return parameter names list must match return parameter types list!"
 	);
 }
