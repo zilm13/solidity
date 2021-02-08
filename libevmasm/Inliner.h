@@ -27,6 +27,7 @@
 
 #include <range/v3/view/span.hpp>
 #include <map>
+#include <set>
 #include <vector>
 
 namespace solidity::evmasm
