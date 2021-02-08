@@ -444,7 +444,7 @@ void ContractLevelChecker::checkHashCollisions(ContractDefinition const& _contra
 			m_errorReporter.typeError(
 				4883_error,
 				_contract.location(),
-				SecondarySourceLocation{}.append("This error has the same selector:", errorHashes[hash]),
+				SecondarySourceLocation{}.append("This error has the same selector: ", errorHashes[hash]),
 				string("Error signature hash collision for ") + error->functionType(true)->externalSignature()
 			);
 		else
