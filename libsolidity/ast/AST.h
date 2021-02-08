@@ -1171,7 +1171,7 @@ public:
 	FunctionTypePointer functionType(bool _internal) const override;
 
 	bool isVisibleInDerivedContracts() const override { return true; }
-	bool isVisibleViaContractTypeAccess() const override { return false; /* TODO */ }
+	bool isVisibleViaContractTypeAccess() const override { return true; }
 
 	ErrorDefinitionAnnotation& annotation() const override;
 
