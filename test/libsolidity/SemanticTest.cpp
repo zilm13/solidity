@@ -26,6 +26,7 @@
 #include <cctype>
 #include <fstream>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 
 using namespace std;
@@ -213,8 +214,14 @@ TestCase::TestResult SemanticTest::runTest(ostream& _stream, string const& _line
 				boost::split(builtinPath, test.call().signature, boost::is_any_of("."));
 				soltestAssert(builtinPath.size() == 2, "");
 				auto builtin = m_builtins[builtinPath.front()][builtinPath.back()];
-				output = builtin.function(test.call());
-				test.setFailure(output.empty());
+				std::optional<bytes> builtinOutput{builtin.function(test.call())};
+				if (builtinOutput.has_value())
+				{
+					test.setFailure(false);
+					output = builtinOutput.value();
+				}
+				else
+					test.setFailure(true);
 			}
 			else
 			{
@@ -238,7 +245,11 @@ TestCase::TestResult SemanticTest::runTest(ostream& _stream, string const& _line
 				boost::split(builtinPath, test.call().expectations.builtin->signature, boost::is_any_of("."));
 				assert(builtinPath.size() == 2);
 				auto builtin = m_builtins[builtinPath.front()][builtinPath.back()];
-				expectationOutput = builtin.function(*test.call().expectations.builtin);
+				std::optional<bytes> builtinResult = builtin.function(*test.call().expectations.builtin);
+				if (builtinResult.has_value())
+					expectationOutput = builtinResult.value();
+				else
+					test.setFailure(true);
 			}
 			else
 				expectationOutput = test.call().expectations.rawBytes();
@@ -257,8 +268,8 @@ TestCase::TestResult SemanticTest::runTest(ostream& _stream, string const& _line
 					outputMismatch = false;
 				if (m_transactionSuccessful != !test.call().expectations.failure || outputMismatch)
 					success = false;
+				test.setFailure(!m_transactionSuccessful);
 			}
-			test.setFailure(!m_transactionSuccessful);
 			test.setRawBytes(std::move(output));
 			test.setContractABI(m_compiler.contractABI(m_compiler.lastContractName()));
 		}
@@ -393,11 +404,15 @@ bool SemanticTest::deploy(
 	return !output.empty() && m_transactionSuccessful;
 }
 
-bytes SemanticTest::builtinSmokeTest(FunctionCall const& call)
+std::optional<bytes> SemanticTest::builtinSmokeTest(FunctionCall const& call)
 {
 	// This function is only used in test/libsolidity/semanticTests/builtins/smoke.sol.
-	bytes result;
-	for (const auto & parameter : call.arguments.parameters)
-		result += util::toBigEndian(u256{util::fromHex(parameter.rawString)});
+	std::optional<bytes> result;
+	if (call.arguments.parameters.size() < 3)
+	{
+		result = bytes();
+		for (const auto& parameter: call.arguments.parameters)
+			result.value() += util::toBigEndian(u256{util::fromHex(parameter.rawString)});
+	}
 	return result;
 }

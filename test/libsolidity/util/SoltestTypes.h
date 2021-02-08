@@ -304,7 +304,7 @@ struct FunctionCall
 };
 
 struct BuiltinFunction {
-	std::function<bytes(FunctionCall const&)> function;
+	std::function<std::optional<bytes>(FunctionCall const&)> function;
 };
 using BuiltinFunctions = std::map<std::string, std::map<std::string, BuiltinFunction>>;
 
