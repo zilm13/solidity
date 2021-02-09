@@ -20,6 +20,7 @@
 
 #include <functional>
 #include <set>
+#include <list>
 
 namespace solidity::util
 {
