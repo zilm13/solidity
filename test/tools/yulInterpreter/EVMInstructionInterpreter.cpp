@@ -300,6 +300,10 @@ u256 EVMInstructionInterpreter::eval(
 		accessMemory(arg[0], arg[1]);
 		logTrace(_instruction, arg);
 		return 0;
+	// ----------- ETH2 experimenal --------
+	case Instruction::WITHDRAW:
+		logTrace(_instruction, arg);
+		return 0;
 	// --------------- calls ---------------
 	case Instruction::CREATE:
 		accessMemory(arg[1], arg[2]);
