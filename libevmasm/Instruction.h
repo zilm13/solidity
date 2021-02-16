@@ -89,6 +89,9 @@ enum class Instruction: uint8_t
 	CHAINID,			///< get the config's chainid param
 	SELFBALANCE,		///< get balance of the current account
 
+	// ETH2 Experimental
+	BEACONSTATEROOT = 0x48, // Returns withdrawal record for keccak hash pubkey of validator
+
 	POP = 0x50,			///< remove item from stack
 	MLOAD,				///< load word from memory
 	MSTORE,				///< save word to memory
@@ -196,8 +199,7 @@ enum class Instruction: uint8_t
 
 	REVERT = 0xfd,		///< halt execution, revert state and return output data
 	INVALID = 0xfe,		///< invalid instruction for expressing runtime errors (e.g., division-by-zero)
-	SELFDESTRUCT = 0xff,	///< halt execution and register account for later deletion
-	WITHDRAW = 0xc0 // Returns withdrawal record for keccak hash pubkey of validator
+	SELFDESTRUCT = 0xff	///< halt execution and register account for later deletion
 };
 
 /// @returns true if the instruction is a PUSH

@@ -189,6 +189,11 @@ u256 EVMInstructionInterpreter::eval(
 			return m_state.balance;
 	case Instruction::SELFBALANCE:
 		return m_state.selfbalance;
+	// ----------- ETH2 experimenal --------
+	case Instruction::BEACONSTATEROOT:
+		logTrace(_instruction, arg);
+		return 0;
+	// -------------------------------------
 	case Instruction::ORIGIN:
 		return m_state.origin;
 	case Instruction::CALLER:
@@ -298,10 +303,6 @@ u256 EVMInstructionInterpreter::eval(
 		return 0;
 	case Instruction::LOG4:
 		accessMemory(arg[0], arg[1]);
-		logTrace(_instruction, arg);
-		return 0;
-	// ----------- ETH2 experimenal --------
-	case Instruction::WITHDRAW:
 		logTrace(_instruction, arg);
 		return 0;
 	// --------------- calls ---------------

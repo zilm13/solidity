@@ -85,6 +85,7 @@ std::map<std::string, Instruction> const solidity::evmasm::c_instructions =
 	{ "GASLIMIT", Instruction::GASLIMIT },
 	{ "CHAINID", Instruction::CHAINID },
 	{ "SELFBALANCE", Instruction::SELFBALANCE },
+	{ "BEACONSTATEROOT", Instruction::BEACONSTATEROOT },
 	{ "POP", Instruction::POP },
 	{ "MLOAD", Instruction::MLOAD },
 	{ "MSTORE", Instruction::MSTORE },
@@ -175,8 +176,7 @@ std::map<std::string, Instruction> const solidity::evmasm::c_instructions =
 	{ "CREATE2", Instruction::CREATE2 },
 	{ "REVERT", Instruction::REVERT },
 	{ "INVALID", Instruction::INVALID },
-	{ "SELFDESTRUCT", Instruction::SELFDESTRUCT },
-	{ "WITHDRAW", Instruction::WITHDRAW }
+	{ "SELFDESTRUCT", Instruction::SELFDESTRUCT }
 };
 
 static std::map<Instruction, InstructionInfo> const c_instructionInfo =
@@ -232,6 +232,7 @@ static std::map<Instruction, InstructionInfo> const c_instructionInfo =
 	{ Instruction::GASLIMIT,	{ "GASLIMIT",		0, 0, 1, false, Tier::Base } },
 	{ Instruction::CHAINID,		{ "CHAINID",		0, 0, 1, false, Tier::Base } },
 	{ Instruction::SELFBALANCE,	{ "SELFBALANCE",	0, 0, 1, false, Tier::Low } },
+	{ Instruction::BEACONSTATEROOT,	{ "BEACONSTATEROOT",		0, 1, 1, false, Tier::Low } },
 	{ Instruction::POP,			{ "POP",			0, 1, 0, false, Tier::Base } },
 	{ Instruction::MLOAD,		{ "MLOAD",			0, 1, 1, true, Tier::VeryLow } },
 	{ Instruction::MSTORE,		{ "MSTORE",			0, 2, 0, true, Tier::VeryLow } },
@@ -322,8 +323,7 @@ static std::map<Instruction, InstructionInfo> const c_instructionInfo =
 	{ Instruction::CREATE2,		{ "CREATE2",		0, 4, 1, true, Tier::Special } },
 	{ Instruction::REVERT,		{ "REVERT",		0, 2, 0, true, Tier::Zero } },
 	{ Instruction::INVALID,		{ "INVALID",		0, 0, 0, true, Tier::Zero } },
-	{ Instruction::SELFDESTRUCT,	{ "SELFDESTRUCT",		0, 1, 0, true, Tier::Special } },
-	{ Instruction::WITHDRAW,	{ "WITHDRAW",		0, 1, 1, false, Tier::Mid } }
+	{ Instruction::SELFDESTRUCT,	{ "SELFDESTRUCT",		0, 1, 0, true, Tier::Special } }
 };
 
 void solidity::evmasm::eachInstruction(
