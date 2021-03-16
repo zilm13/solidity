@@ -190,7 +190,7 @@ u256 EVMInstructionInterpreter::eval(
 	case Instruction::SELFBALANCE:
 		return m_state.selfbalance;
 	// ----------- ETH2 experimenal --------
-	case Instruction::BEACONSTATEROOT:
+	case Instruction::BEACONBLOCKROOT:
 		logTrace(_instruction, arg);
 		return 0;
 	// -------------------------------------
