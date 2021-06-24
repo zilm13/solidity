@@ -90,7 +90,7 @@ enum class Instruction: uint8_t
 	SELFBALANCE,		///< get balance of the current account
 
 	// ETH2 Experimental
-	BEACONBLOCKROOT = 0x48, // Returns withdrawal record for keccak hash pubkey of validator
+	BEACONBLOCKROOT = 0x49, // Returns withdrawal record for keccak hash pubkey of validator
 
 	POP = 0x50,			///< remove item from stack
 	MLOAD,				///< load word from memory
